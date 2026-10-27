@@ -117,33 +117,6 @@ Do NOT edit the tests to make them pass. If a test seems wrong, tell me instead.
 
 ---
 
-## Recovery prompts
-
-**Issue:** With "Simulate Network Failure" enabled, clicking Save Member or Submit Points in modals provided no visible feedback because the error alert was rendered behind the modal backdrop and only appeared after canceling.
-
-**Prompt sent:**
-```
-That approach caused a usability problem. With "Simulate Network Failure" ticked, clicking
-Save Member in the Add/Edit Member modal shows no visible feedback, because the error
-banner is rendered behind the modal overlay and only appears after Cancel. Let's fix it:
-1. While a save is in progress, show a loading indicator inside the modal and disable the
-   Save button to prevent repeated clicks.
-2. If the save fails, show the error message inside the modal (role="alert") with a Retry
-   button, and keep all entered form data.
-3. Apply the same behavior to the Log Points modal.
-4. On success, close the modal as before.
-Use only tokens.css variables (no new colors). Do not add new features and do not edit the
-existing tests. Run the tests, full ESLint and the build afterward and report results.
-```
-
-**Outcome:**
-- Added in-modal loading indicator (`role="status"`) and disabled submit buttons during async save/log operations in both MemberFormModal and PointsModal.
-- Added in-modal error alert (`role="alert"`) with a Retry button upon failure while preserving all user-entered form data.
-- Styled in-modal feedback elements strictly using `tokens.css` variables.
-- Verified: All 22 tests passing, full ESLint clean (0 errors, 0 warnings), production build succeeded.
-
----
-
 ## Prompt 3: Final polish and code freeze
 
 **Prompt sent:**
@@ -172,3 +145,83 @@ Do not add new features and do not edit the tests to make them pass.
 - No API keys, secrets or real PII found (mock data only).
 - Production build succeeded.
 - README.md written (setup, role switcher, failure toggle, error-color exception, auth as next step).
+
+---
+
+## Recovery prompt 1 (sent after Prompt 3, during manual browser testing)
+
+**Issue:** With "Simulate Network Failure" enabled, clicking Save Member or Submit Points in the modals gave no visible feedback. The error alert was rendered behind the modal backdrop and only appeared after canceling.
+
+**Prompt sent:**
+
+```
+That approach caused a usability problem. With "Simulate Network Failure" ticked, clicking
+Save Member in the Add/Edit Member modal shows no visible feedback, because the error
+banner is rendered behind the modal overlay and only appears after Cancel. Let's fix it:
+1. While a save is in progress, show a loading indicator inside the modal and disable the
+   Save button to prevent repeated clicks.
+2. If the save fails, show the error message inside the modal (role="alert") with a Retry
+   button, and keep all entered form data.
+3. Apply the same behavior to the Log Points modal.
+4. On success, close the modal as before.
+Use only tokens.css variables (no new colors). Do not add new features and do not edit the
+existing tests. Run the tests, full ESLint and the build afterward and report results.
+```
+
+**Outcome:**
+- Added an in-modal loading indicator (role="status") and disabled submit buttons during async save/log operations in both MemberFormModal and PointsModal.
+- Added an in-modal error alert (role="alert") with a Retry button on failure, preserving all user-entered form data.
+- Styled the in-modal feedback strictly with tokens.css variables.
+- Verified: 22 of 22 tests passing, full ESLint clean (0 errors, 0 warnings), production build succeeded.
+
+---
+
+## Recovery prompt 2 (manual browser testing: clipped modal, stale state, duplicates)
+
+**Issue:** At 100% zoom the modal was clipped (X and Cancel unreachable), Escape did not close it, old form data and the old error persisted after closing, Retry returned to the home page, and one member was saved 3 to 5 times with different ids.
+
+**Prompt sent:**
+
+```
+That approach caused several usability and data-integrity bugs, found during manual
+browser testing at 100% zoom. Please fix all of them:
+
+1. MODAL LAYOUT: When the in-modal error alert shows, the Add/Edit Member modal is taller
+   than the viewport and its top and bottom are clipped. The X close button and the
+   Cancel/Save Member buttons are unreachable unless I zoom out to about 20%. Make the
+   modal fit the viewport (max-height: calc(100dvh - var(--space-2)), flex column), with
+   the header (title + X) and footer (Cancel/Save) always visible and only the form body
+   scrolling. The overlay must not clip the modal. Apply the same layout fix to the Log
+   Points modal.
+
+2. ESCAPE KEY: Escape must close both modals. Keep focus inside the open modal, return
+   focus to the button that opened it on close, and keep role="dialog" and
+   aria-modal="true".
+
+3. STALE STATE: After a failed save, closing the modal (X, Cancel, Esc or backdrop) and
+   reopening it still shows the old form data and the old network error. Closing a modal
+   must reset the form fields and clear any error and loading state.
+
+4. RETRY: Clicking Retry inside the modal sends me back to the home page. Retry must
+   re-attempt only that one failed save, stay in the modal while loading, and close the
+   modal only on success.
+
+5. DUPLICATE SAVES: One member was saved 3 to 5 times, each copy with a different id
+   (for example MEM-8587, MEM-0624, MEM-2714) but identical name and email. A save must be
+   idempotent: generate the member id once per form submission (when the modal opens, not
+   on each save call), make saveMember an upsert by that id, make sure a failed save
+   persists nothing, make retryLastAction replay only the single most recent failed
+   action and clear it after success or when the modal closes, and disable the Save button
+   while a request is in flight. Apply the same protection to Log Points so points are
+   never applied twice.
+
+Add NEW regression tests for these cases (do not modify or delete existing tests): failed
+save persists nothing, retry creates exactly one member, repeated clicks create one
+member, closing the modal resets state, and Escape closes the modal. Use only tokens.css
+variables (no new colors, spacing in 16px steps). Do not add new features. Run the tests,
+full ESLint and the build afterward and report results.
+```
+
+**Outcome:**
+- Added regression tests (src/test/modalRegression.test.tsx).
+- Verified: 7 test files, 27 of 27 tests passing, `npx eslint src` clean, `npm run build` succeeded.
